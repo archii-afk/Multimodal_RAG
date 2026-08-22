@@ -11,6 +11,8 @@ dependencies = [
   "openai>=1.40",
   # Pillow computes perceptual hashes for video frame deduplication.
   "Pillow>=10",
+  # google-genai provides structured Gemini frame analysis and OCR.
+  "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]

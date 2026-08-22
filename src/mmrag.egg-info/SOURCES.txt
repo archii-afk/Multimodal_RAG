@@ -19,6 +19,7 @@ src/mmrag.egg-info/top_level.txt
 src/mmrag/ingest/__init__.py
 src/mmrag/ingest/audio.py
 src/mmrag/ingest/video.py
+src/mmrag/ingest/vision.py
 tests/test_answer_eval.py
 tests/test_audio_ingest.py
 tests/test_cli.py
@@ -29,3 +30,4 @@ tests/test_pipeline.py
 tests/test_retrieval.py
 tests/test_store.py
 tests/test_video_ingest.py
+tests/test_vision_ingest.py
