@@ -1,6 +1,6 @@
 # Multimodal RAG — design spec (v1, hackathon)
 
-Date: 2026-08-22 · Status: Accepted by user · Brief: `multimodal_data_management_hackathon.pdf`
+Date: 2026-08-22 (rev. 2026-08-23 after Codex review) · Status: Accepted by user · Brief: `multimodal_data_management_hackathon.pdf`
 
 ## 1. Goal
 
@@ -19,10 +19,11 @@ cross-modal+temporal 20 / retrieval 20 / innovation 15 / demo 5.
 
 - Primary: ~40-min talking video of an ex-Atlassian senior engineer explaining
   Atlassian's AWS architecture with Excalidraw-style diagrams on screen.
-- Secondary: one short (3–10 min) architecture video by Archisman, for
-  cross-file linking.
-- Documents: public Atlassian engineering blog posts / architecture docs
-  exported to PDF, chosen to overlap the systems drawn in the video.
+- Secondary (deferred until the primary path works end to end): one short
+  (3–10 min) architecture video by Archisman, for cross-file linking.
+- Documents: 2–3 public Atlassian engineering blog posts / architecture docs
+  exported to PDF, chosen **after the first transcript pass** for exact entity
+  overlap with what the engineer names on screen.
 - Images: diagram frames extracted from video, plus any standalone diagram
   images pulled from the blog posts.
 - All raw media lives in `data/raw/` (gitignored). Processed artifacts in
@@ -43,68 +44,124 @@ query ──► embed ──► top-k across ALL modalities ──► expand 1�
 
 | field        | notes |
 |--------------|-------|
-| id           | uuid |
-| kind         | `transcript_segment` · `frame` · `ocr_block` · `image` · `pdf_chunk` · `entity` · `source` |
+| id           | uuid, assigned by the store |
+| kind         | `source` · `transcript_segment` · `frame` · `ocr_block` · `image` · `pdf_chunk` · `entity` · `claim` |
 | modality     | `audio` · `video` · `image` · `document` · `entity` |
-| content      | text: transcript text, OCR text, vision description, PDF chunk, entity name |
-| source_id    | FK → source node (file) |
-| t_start, t_end | seconds (media) or null |
-| page / bbox  | PDF page, image region (provenance to region, stretch) |
-| speaker      | presenter label (single speaker per video; no diarization) |
-| confidence   | 0–1: ASR avg logprob, OCR confidence, LLM self-reported, or 1.0 |
-| provenance   | JSON: extractor name + version/model, raw file path, frame path |
+| content      | text: transcript text, OCR text, vision description, PDF chunk, entity name, claim statement |
+| source_id    | FK → source node (authoritative; `part_of` edges are derived from it) |
+| t_start, t_end | seconds. Frames carry a **validity window** (midpoints to adjacent frames), not an instant |
+| page         | 1-based PDF page; chunks never span pages |
+| speaker      | presenter label (denormalized; the graph edge `spoken_by` is authoritative) |
+| confidence   | 0–1 used for ranking; method-level default (ASR/OCR/PDF/LLM) |
+| model_confidence | raw LLM self-reported confidence, stored but not trusted for ranking |
+| canonical_key | entities/persons/claims: normalized key used to merge duplicates across sources |
+| provenance   | JSON: extractor + model + prompt_version, raw path, frame path, sha256, similarity threshold |
 | embedding_id | FK into vector index |
+
+Source nodes carry structured fields: `title`, `path`, `mime_type`, `sha256`, `duration`, `presenter`.
+
+**Claims.** A claim is a proposition extracted from speech or text, e.g.
+*"Atlassian added read replicas to reduce load on the primary database."*
+Entities alone ("read replica") cannot answer "what architecture reduces
+database load"; claims can. Claims are extracted in one batched LLM pass over
+transcript segments and PDF chunks.
+
+**Persons.** The presenter is an `entity` node with `canonical_key=person:<name>`.
 
 ### 3.2 Edge model (`edges`: src, dst, kind, weight, provenance)
 
-| kind           | meaning |
-|----------------|---------|
-| `co_occurs_at` | transcript_segment ↔ frame/ocr_block overlapping in time |
-| `mentions`     | transcript_segment / pdf_chunk / ocr_block → entity |
-| `depicts`      | frame / image → entity (from vision description) |
-| `same_topic`   | cross-source link via embedding similarity above threshold |
-| `part_of`      | node → source; ocr_block → frame |
-| `next`         | temporal ordering of segments within a source |
+| kind           | src → dst | meaning / weight |
+|----------------|-----------|------------------|
+| `part_of`      | node → source; ocr_block → frame; image → pdf_chunk | derived structure |
+| `next`         | segment → segment | temporal order within a source |
+| `co_occurs_at` | transcript_segment ↔ frame | time overlap; weight = overlap seconds |
+| `spoken_by`    | transcript_segment → person entity | who said it |
+| `mentions`     | segment / pdf_chunk / ocr_block → entity | textual mention |
+| `depicts`      | frame / image → entity | from vision description |
+| `expresses`    | transcript_segment → claim | speech states the claim |
+| `illustrates`  | frame / image → claim | visual shows the claim |
+| `supports`     | pdf_chunk → claim | document backs the claim |
+| `involves`     | claim → entity | claim is about these entities |
+| `same_topic`   | node ↔ node, **cross-source only** | embedding similarity; capped at N per node; threshold in provenance |
 
-Entities are normalized (lowercased canonical name + aliases) so the same
+Entities are normalized (lowercased canonical name + alias map) so the same
 system ("Tenant Context Service", "TCS") links across video, OCR, and PDF.
 
-### 3.3 Ingestion workers (each a module with a pure function `ingest(path) -> nodes, edges`)
+### 3.3 Ingestion contract
 
-- **video**: `ffmpeg` → audio track; scene-change frame sampling (ffmpeg
-  `select='gt(scene,0.3)'`, capped + min-gap) → frames with timestamps.
-- **audio**: OpenAI Whisper API with segment timestamps → transcript_segments.
-- **frames/images**: Gemini vision, one call per frame returning
-  `{description, ocr_text, entities, is_diagram, confidence}`.
-- **pdf**: PyMuPDF → page text chunks (+ embedded images as image nodes).
-- **entities**: LLM pass over segments/OCR/chunks → entity nodes + `mentions`.
-- **linker**: time-overlap → `co_occurs_at`; embedding similarity → `same_topic`.
+Workers are pure functions returning an `IngestBatch` of `NodeDraft`/`EdgeDraft`
+with **batch-local `ref`s**; the store resolves refs to ids atomically and merges
+entities/claims by `canonical_key`. Workers never touch the database. The
+contract lives in `src/mmrag/model.py` and is frozen; changes require a
+DECISIONS entry.
 
-### 3.4 Retrieval
+```python
+def ingest_audio(path, *, source_ref, presenter) -> IngestBatch
+def sample_video_frames(path, *, source_ref, interval_s=5.0,
+                        scene_threshold=0.20, min_gap_s=2.0, max_frames=80) -> IngestBatch
+def ingest_frames(batch, *, model) -> IngestBatch      # adds descriptions/OCR/entities
+def ingest_pdf(path, *, source_ref, chunk_tokens=650, overlap_tokens=80) -> IngestBatch
+def extract_claims(batch, *, model) -> IngestBatch     # transcript + pdf → claims
+```
 
-1. Embed query; vector search across all node kinds (not only text).
-2. Optional entity match from query → seed entity nodes.
-3. Expand 1–2 hops along `co_occurs_at`, `mentions`, `depicts`, `same_topic`.
-4. Score = similarity × confidence (stretch: confidence weighting), group into
-   an **evidence bundle**: answer text + list of evidence items each with
-   modality, source, timestamp/page, frame thumbnail path.
-5. LLM composes final answer citing evidence ids.
+### 3.4 Ingestion workers
 
-### 3.5 Baseline (deliverable)
+- **audio**: `ffmpeg` → 16 kHz mono 32–48 kbps (40 min fits Whisper's 25 MB);
+  if not, split at silences into ~10-min chunks with 1–2 s overlap, offset
+  timestamps, dedupe. Whisper API with segment timestamps → transcript_segments
+  + `spoken_by` presenter.
+- **frames**: hybrid sampling — fixed every 5 s plus scene-change candidates at
+  0.15–0.25, near-duplicate rejection by perceptual hash, guaranteed ≥1 frame
+  per 30 s, target 40–80 frames. (Pure scene detection under-fires on incremental
+  Excalidraw strokes and over-fires on scroll/cursor.) Each frame gets a validity
+  window.
+- **vision**: Gemini, one call per retained frame returning structured JSON
+  `{description, ocr_text, entities, is_diagram, model_confidence}`; cached on
+  disk by `sha256(frame)+model+prompt_version`; concurrency 2–4 with backoff;
+  resumable. Entities from this call are normalized deterministically — no
+  second entity pass on frames.
+- **pdf**: PyMuPDF, chunk within page boundaries by blocks/headings,
+  ~650 tokens with ~80 overlap, record page + char offsets. Embedded images and
+  bboxes deferred.
+- **claims + entities**: one batched LLM pass over transcript segments and PDF
+  chunks → claim nodes, entity nodes, `expresses`/`supports`/`involves`/`mentions`.
+- **linker**: time-overlap → `co_occurs_at`; frame entities ∩ claim entities →
+  `illustrates`; cross-source embedding similarity → `same_topic`.
 
-Same store, restricted to transcript + pdf nodes, no graph expansion. Same
-query set; compare whether required multimodal evidence is retrieved
-(recall@k over a hand-labelled ~10-question set).
+### 3.5 Retrieval
 
-### 3.6 Interface
+1. Embed query; vector search across all node kinds.
+2. Entity/claim match from query → seed nodes.
+3. Expand along **typed paths only** (no unrestricted recursion):
+   `segment → claim → frame` (illustrates), `segment → claim → pdf_chunk`
+   (supports), `segment ↔ frame` (co_occurs_at), `segment → person` (spoken_by),
+   `* → same_topic` (1 hop, capped).
+4. Score = similarity × confidence; bundle into **evidence items** each with
+   modality, source, timestamp/page, frame thumbnail, and the full path taken.
+5. LLM composes the answer citing evidence ids.
 
-CLI (`ingest`, `query`) + minimal FastAPI page showing the evidence bundle
-with frame thumbnails and timestamps. No auth, no polish.
+### 3.6 Evaluation (deliverable)
+
+Three runs over the same store and a 5-question hand-labelled set (the demo
+query + four single-link checks), measuring recall of required evidence:
+
+| run | modalities | graph expansion |
+|-----|-----------|-----------------|
+| text-only baseline | transcript + pdf | no |
+| flat multimodal ablation | all | no |
+| full system | all | yes |
+
+The ablation isolates the graph's contribution from merely having frames.
+
+### 3.7 Interface
+
+CLI (`ingest`, `query`) + one FastAPI page: query form and evidence cards with
+thumbnails and timestamps. No auth, no polish.
 
 ## 4. Stack
 
 Python 3.11+, `ffmpeg`, OpenAI (Whisper, embeddings, chat), Gemini (vision),
-PyMuPDF, SQLite + `sqlite-vec` (fallback: numpy brute-force — corpus is small),
+PyMuPDF, SQLite + `sqlite-vec` (switch to numpy brute-force if it fights back for >20 min — corpus is small),
 FastAPI, pytest. Keys via `.env` (documented in `.env.example`).
 
 ## 5. Work split
@@ -122,7 +179,16 @@ future improvements.
 
 ## 7. Risks
 
-- 40-min video ⇒ ~hundreds of frames; cap vision calls (~150) via scene
-  threshold + min gap.
-- Whisper API 25 MB limit ⇒ split audio into chunks, offset timestamps.
+- Frame count/cost: hybrid sampling + dedupe targets 40–80 frames; vision cache
+  makes reruns free.
+- Whisper API 25 MB limit ⇒ low-bitrate mono first, silence-split fallback.
 - Entity normalization quality drives cross-modal linking; keep an alias map.
+- Claim extraction quality drives the demo query; review claims for the
+  primary video by hand before the demo.
+
+## 8. Review history
+
+- 2026-08-22 Codex design review: added claims, `spoken_by`, frame validity
+  windows, structured sources, typed-path expansion, flat-multimodal ablation,
+  hybrid frame sampling, vision cache, frozen ingestion contract, and the cuts
+  above. No objections to Option A or the work split.

@@ -33,3 +33,10 @@ Record decisions that affect architecture, product scope, dependencies, data con
 - **Context:** Keys available for OpenAI and Gemini; two agents (Claude Code, Codex) working in parallel.
 - **Decision:** Python 3.11+, ffmpeg, OpenAI Whisper API (ASR), Gemini vision (frame description + OCR + entities in one call), PyMuPDF, OpenAI embeddings, FastAPI + minimal HTML, pytest. Claude owns schema/storage/linker/retrieval/eval/integration; Codex owns ingestion workers and PDF sourcing, built against the schema Claude defines first.
 - **Consequences:** Schema must land on `main` before Codex starts workers. Single speaker per video, so no diarization; speaker = presenter label.
+
+### 2026-08-23 — Adopt Codex design-review refinements; freeze ingestion contract
+
+- **Status:** Accepted
+- **Context:** Codex reviewed the Option A spec and flagged: no node for propositions, presenter only as text, frames as instants, confounded baseline, scene detection unreliable on Excalidraw screens, uncached vision calls, and the schedule being serialized on storage.
+- **Decision:** Add `claim` nodes with `expresses`/`illustrates`/`supports`/`involves` edges; persons as entity nodes with `spoken_by`; frame validity windows with overlap-weighted `co_occurs_at`; a flat-multimodal ablation alongside the text-only baseline; hybrid 5 s + scene sampling with perceptual-hash dedupe; on-disk vision cache keyed by sha256+model+prompt_version; typed-path-only graph expansion. The worker/store boundary is frozen in `src/mmrag/model.py` (`NodeDraft`, `EdgeDraft`, `IngestBatch`, batch-local refs, `key:<canonical_key>` references, `canonical_key` merging). Changing it requires a new DECISIONS entry.
+- **Consequences:** Codex builds workers against the contract immediately while Claude builds storage. Deferred: second video, PDF embedded images/bboxes; eval set is 5 questions; PDFs chosen after the first transcript pass. Tooling: `uv` + Python 3.12 venv.

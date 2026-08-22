@@ -16,9 +16,27 @@ This repository is prepared for both Codex and Claude Code:
 
 Use a separate branch and worktree for each agent when work happens in parallel. See `AGENTS.md` for the workflow.
 
+## Layout
+
+```
+src/mmrag/model.py   frozen ingestion contract (NodeDraft / EdgeDraft / IngestBatch)
+tests/               pytest
+docs/                project memory + design spec
+data/raw/            input media (gitignored)
+data/processed/      frames, transcripts, caches, SQLite store (gitignored)
+```
+
+## Setup
+
+```sh
+uv venv -p 3.12 .venv && uv pip install -e ".[dev]"
+cp .env.example .env   # add OPENAI_API_KEY, GEMINI_API_KEY
+.venv/bin/python -m pytest -q
+```
+
 ## Current state
 
 - Challenge brief: present
 - Requirements review: done — see `docs/PROJECT_CONTEXT.md`
 - Architecture and stack: decided — see `docs/DECISIONS.md` and `docs/superpowers/specs/2026-08-22-multimodal-rag-design.md`
-- Application scaffold: not started
+- Application scaffold: package + frozen ingestion contract landed; storage and workers in progress

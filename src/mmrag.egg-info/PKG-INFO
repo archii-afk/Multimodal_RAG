@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: mmrag
+Version: 0.1.0
+Summary: Multimodal data management pipeline for RAG-ready systems (hackathon)
+Requires-Python: >=3.11
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

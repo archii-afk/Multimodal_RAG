@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/mmrag/__init__.py
+src/mmrag/model.py
+src/mmrag.egg-info/PKG-INFO
+src/mmrag.egg-info/SOURCES.txt
+src/mmrag.egg-info/dependency_links.txt
+src/mmrag.egg-info/requires.txt
+src/mmrag.egg-info/top_level.txt
+tests/test_model.py
