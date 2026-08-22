@@ -76,8 +76,8 @@ class Pipeline:
             else:
                 self.log(f"[skip] unsupported {path.name}")
                 continue
-            claims = w.extract_claims(batch, model=self.llm_model)
-            batch = batch.merge(claims)
+            # extract_claims returns the enriched full batch (its edges reference input refs).
+            batch = w.extract_claims(batch, model=self.llm_model)
             res = self.store.insert_batch(batch)
             for wmsg in batch.warnings:
                 self.log(f"[warn] {wmsg}")

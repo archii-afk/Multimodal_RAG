@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from mmrag.embeddings import HashEmbedder
-from mmrag.model import IngestBatch, Modality, NodeDraft, NodeKind, SourceDraft
+from mmrag.model import EdgeDraft, EdgeKind, IngestBatch, Modality, NodeDraft, NodeKind, SourceDraft
 from mmrag.pipeline import Pipeline, Workers
 from mmrag.store import SQLiteStore
 
@@ -35,7 +35,12 @@ def fake_pdf(path, *, source_ref, **kw):
 
 
 def fake_claims(batch, *, model):
-    return IngestBatch(nodes=(), edges=())
+    # Contract: returns the enriched FULL batch (claim edges reference input refs).
+    claim = NodeDraft(ref="claim:0", kind=NodeKind.CLAIM, modality=Modality.ENTITY, content="replicas reduce load",
+                      source_ref=batch.nodes[0].ref, canonical_key="claim:replicas reduce load")
+    seg = next((n for n in batch.nodes if n.kind is NodeKind.TRANSCRIPT_SEGMENT), None)
+    edges = batch.edges + ((EdgeDraft(seg.ref, "claim:0", EdgeKind.EXPRESSES),) if seg else ())
+    return IngestBatch(batch.nodes + (claim,), edges)
 
 
 def test_pipeline_ingests_video_and_pdf_then_links_and_embeds(tmp_path):
@@ -44,6 +49,7 @@ def test_pipeline_ingests_video_and_pdf_then_links_and_embeds(tmp_path):
     p = Pipeline(store, HashEmbedder(32), Workers(fake_audio, fake_frames, fake_vision, fake_pdf, fake_claims),
                  vision_model="m", llm_model="m")
     report = p.ingest([tmp_path / "talk.mp4", tmp_path / "doc.pdf"], presenter="Jane")
-    assert report["sources"] == 2 and report["co_occurs_at"] == 1 and report["embedded"] == 3
+    assert report["sources"] == 2 and report["co_occurs_at"] == 1 and report["embedded"] == 4  # seg, frame, chunk, claim
     frames = store.nodes_by_kind(NodeKind.FRAME)
     assert frames[0].content == "diagram of replicas"  # vision ran on sampled frames before insert
+    assert len(store.nodes_by_kind(NodeKind.CLAIM)) == 1  # claims merged once, no duplicate refs
