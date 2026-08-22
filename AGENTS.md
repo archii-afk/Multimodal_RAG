@@ -14,6 +14,7 @@ These instructions apply to the entire repository and are the shared operating r
 - Prefer small, reviewable changes with clear names and minimal unrelated churn.
 - Preserve user and other-agent changes. Never reset, discard, or overwrite work you did not create.
 - Keep secrets and local credentials out of Git. Use environment variables and document required names in `.env.example` if configuration is introduced.
+- Never use `git add -A` or `git add .`. Stage explicit paths, and read `git status` for unexpected files before every commit. (A stray key file was once swept into history this way and had to be purged.)
 - Add or update tests with implementation changes. Run the narrowest relevant checks first, then the full available suite before handoff.
 - Update documentation when behavior, setup, architecture, or a settled decision changes.
 - Avoid adding dependencies unless they materially simplify the solution; document why each non-obvious dependency is needed.
