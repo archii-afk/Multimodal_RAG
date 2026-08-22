@@ -4,18 +4,16 @@ Keep this page current while work is in progress. Replace stale task details aft
 
 ## Active tasks
 
-### Codex — ingestion workers — DONE, ready for Claude review
-- **Branch/worktree:** `codex/ingestion` in `../Multimodal_RAG-codex`, rebased onto `main` at `e77ef15`.
-- **Commits:** `26bec5f` audio, `468c188` video frames, `baee252` vision, `7d0a953` PDF, `314921e` claims.
-- Implemented all five frozen-contract workers with no changes to `src/mmrag/model.py`.
-- Whisper, Gemini, and claim-extraction calls are cached on disk and resumable; tests use generated media/PDF fixtures and mocked API boundaries, with no keys.
-- **Integration note:** `extract_claims(batch)` returns the enriched full batch because its edges reference the input evidence refs (required by `IngestBatch` validation). In `pipeline.py`, replace `claims = ...; batch = batch.merge(claims)` with `batch = w.extract_claims(batch, model=self.llm_model)` to avoid duplicate refs.
-- **Primary video:** not present in either checkout's `data/raw/` as of 2026-08-23, so the real Whisper pass and system/architecture name list remain pending.
+### Claude — demo hardening
+- Primary video ingested end-to-end on `main` (`data/processed/evidence.db`): 1204 nodes / 3437 edges, 93 frames (49 diagrams), 172 claims, 48 `illustrates` links. Demo query returns transcript + diagram frames + speaker with timestamps.
+- Next: source 2–3 overlapping public docs as PDFs (see system names below), ingest them, label `eval/questions.json` (5 questions), run `mmrag eval`, README architecture + future-work sections, rehearse `mmrag serve`.
 
-### Claude — storage, linker, retrieval — DONE, merged to `main`
-- `store.py`, `embeddings.py` (numpy index; OpenAI or hash embedder), `linker.py`, `retrieval.py` (3 modes), `pipeline.py`, `answer.py`, `evaluation.py`, `cli.py`, `web.py`. 38 tests.
-- `pipeline.Workers.default()` imports `mmrag.ingest.{audio,video,vision,pdf,claims}` by the contract names — Codex: keep those module paths and function names.
-- Next for Claude: review + integrate `codex/ingestion`, then run real ingestion on the primary video once it is in `data/raw/`, pick PDFs, label `eval/questions.json`.
+### Codex — available
+- Candidate task: source and export PDFs for the systems below (public Atlassian engineering posts / specs), save under `data/raw/docs/`, and report which entity names each one contains.
+
+## System / architecture names used in the primary video (from transcript + OCR, by frequency)
+Envoy (sidecar proxy, dynamic config/xDS), Open Service Broker API, FastAPI, DynamoDB, SQS, CloudFront, Route53, AMI / HashiCorp Packer, CloudFormation, NLB, IAM Role, EC2, "Sovereign" (Atlassian data sovereignty / sovereign cloud), KeyPair, IGW, Subnet, AutoscalingGroup, SecurityGroup, ACM, S3, VPC, Excalidraw (tool), Atlassian.
+Key narratives: (1) client → FastAPI → SQS → worker → DynamoDB async provisioning with client polling (08:00–09:30); (2) Open Service Broker provisioning flow (≈20:00–21:00); (3) Envoy sidecar / management-server configuration baked into AMIs (≈13:00–15:00).
 
 ## Completed
 
@@ -26,7 +24,7 @@ Keep this page current while work is in progress. Replace stale task details aft
 ## Checks run
 
 - Before workers: `.venv/bin/python -m pytest -q` → 8 passed.
-- After rebase and combined integration: `.venv/bin/python -m pytest -q` → 44 passed.
+- After integration + demo fixes: `.venv/bin/python -m pytest -q` → 46 passed; real ingestion run with 0 warnings.
 
 ## Open questions
 
