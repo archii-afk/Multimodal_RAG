@@ -21,6 +21,7 @@ These instructions apply to the entire repository and are the shared operating r
 ## Codex and Claude Code coordination
 
 - Do not have two agents edit the same working tree at the same time.
+- All commits must use the repository owner's configured Git name and email. Do not override the author or committer identity, and do not add Codex, Claude, AI, or agent `Co-authored-by` trailers.
 - For parallel work, give each agent a separate branch and Git worktree, for example:
 
   ```sh
