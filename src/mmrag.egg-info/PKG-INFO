@@ -8,6 +8,7 @@ Requires-Dist: fastapi>=0.110
 Requires-Dist: uvicorn>=0.29
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: openai>=1.40
+Requires-Dist: Pillow>=10
 Provides-Extra: dev
 Requires-Dist: pytest>=8; extra == "dev"
 Requires-Dist: httpx>=0.27; extra == "dev"
