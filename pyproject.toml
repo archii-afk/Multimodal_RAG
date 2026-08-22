@@ -13,6 +13,8 @@ dependencies = [
   "Pillow>=10",
   # google-genai provides structured Gemini frame analysis and OCR.
   "google-genai>=1.0",
+  # PyMuPDF extracts page-aware document text and offsets.
+  "PyMuPDF>=1.24",
 ]
 
 [project.optional-dependencies]
