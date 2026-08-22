@@ -1,0 +1,48 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# JavaScript / TypeScript
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Local AI tool state
+.claude/settings.local.json
+.codex/
+
+# Generated multimodal/RAG artifacts
+data/raw/
+data/processed/
+artifacts/
+indexes/
+vector_store/
+uploads/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary files
+*.log
+tmp/
+.cache/
