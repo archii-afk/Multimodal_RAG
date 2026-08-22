@@ -78,4 +78,4 @@ def test_evidence_items_carry_provenance(world):
     store, idx, ids = world
     b = Retriever(store, idx).retrieve(QUERY, mode=Mode.GRAPH, k=3)
     f1 = next(e for e in b.evidence if e.node.id == ids["f1"])
-    assert f1.source.path == "v.mp4" and f1.node.t_start == 5 and f1.node.provenance["path"] == "f1.jpg"
+    assert f1.source.path == "v.mp4" and f1.node.t_start == 5 and f1.node.provenance["frame_path"] == "f1.jpg"
