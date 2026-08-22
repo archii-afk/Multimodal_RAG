@@ -44,7 +44,7 @@ def bundle_to_dict(b: Bundle) -> dict:
             "location": location(e), "source": os.path.basename(e.source.path or "") if e.source else None,
             "t_start": e.node.t_start, "t_end": e.node.t_end, "page": e.node.page,
             "score": round(e.score, 4), "similarity": round(e.similarity, 4), "confidence": e.node.confidence,
-            "content": e.node.content, "thumbnail": e.node.provenance.get("path"),
+            "content": e.node.content, "thumbnail": e.node.provenance.get("frame_path") or e.node.provenance.get("path"),
             "path": [f"{'->' if p.src != e.node.id else '<-'}{p.kind}" for p in e.path],
         } for i, e in enumerate(b.evidence, start=1)],
     }

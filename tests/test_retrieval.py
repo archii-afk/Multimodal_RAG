@@ -23,7 +23,7 @@ def world(tmp_path):
                    content="the office coffee machine", t_start=20, t_end=30, speaker="Jane")
     f1 = NodeDraft(ref="f1", kind=NodeKind.FRAME, modality=Modality.VIDEO, source_ref="src:v",
                    content="diagram: primary postgres with two read replica boxes", t_start=5, t_end=15,
-                   provenance={"path": "f1.jpg"})
+                   provenance={"frame_path": "f1.jpg"})
     f2 = NodeDraft(ref="f2", kind=NodeKind.FRAME, modality=Modality.VIDEO, source_ref="src:v",
                    content="slide: agenda", t_start=40, t_end=50)
     p1 = NodeDraft(ref="p1", kind=NodeKind.PDF_CHUNK, modality=Modality.DOCUMENT, source_ref="src:p",
