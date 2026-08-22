@@ -16,7 +16,10 @@ src/mmrag.egg-info/dependency_links.txt
 src/mmrag.egg-info/entry_points.txt
 src/mmrag.egg-info/requires.txt
 src/mmrag.egg-info/top_level.txt
+src/mmrag/ingest/__init__.py
+src/mmrag/ingest/audio.py
 tests/test_answer_eval.py
+tests/test_audio_ingest.py
 tests/test_cli.py
 tests/test_embeddings.py
 tests/test_linker.py
