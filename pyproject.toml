@@ -3,7 +3,7 @@ name = "mmrag"
 version = "0.1.0"
 description = "Multimodal data management pipeline for RAG-ready systems (hackathon)"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["numpy>=1.26"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
