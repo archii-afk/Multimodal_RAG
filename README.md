@@ -19,6 +19,6 @@ Use a separate branch and worktree for each agent when work happens in parallel.
 ## Current state
 
 - Challenge brief: present
-- Requirements review: pending
-- Architecture and stack: pending discussion
+- Requirements review: done — see `docs/PROJECT_CONTEXT.md`
+- Architecture and stack: decided — see `docs/DECISIONS.md` and `docs/superpowers/specs/2026-08-22-multimodal-rag-design.md`
 - Application scaffold: not started

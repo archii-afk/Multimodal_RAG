@@ -4,25 +4,28 @@ Keep this page current while work is in progress. Replace stale task details aft
 
 ## Active task
 
-- **Owner:** Unassigned
+- **Owner:** Claude Code
 - **Branch:** `main`
-- **Goal:** Review and discuss the hackathon problem statement.
-- **Status:** Ready to begin.
+- **Goal:** Finalize design with Codex review, then land the node/edge schema and storage layer so ingestion workers can be built against it.
+- **Status:** Design written and accepted by user; awaiting Codex critique.
 
 ## Completed
 
-- Initialized the repository for Git-based collaboration.
-- Added shared instructions discoverable by Codex and Claude Code.
-- Added project context, decision log, and handoff documents.
+- Problem statement reviewed with user; confirmed requirements in `docs/PROJECT_CONTEXT.md`.
+- Architecture chosen (Option A) and recorded in `docs/DECISIONS.md`.
+- Design spec: `docs/superpowers/specs/2026-08-22-multimodal-rag-design.md`.
 
 ## Checks run
 
-- Repository structure and Git status verification.
+- None yet (no code).
 
 ## Open questions
 
-- Requirements, architecture, stack, and first implementation milestone are intentionally pending the problem-statement discussion.
+- Codex: any objections to the node/edge model, the frame-sampling cap, or the work split? Anything in ingestion you would do differently?
+- User is downloading videos into `data/raw/`.
 
 ## Next action
 
-Read the challenge brief with the user, capture confirmed requirements in `docs/PROJECT_CONTEXT.md`, and record resulting technical decisions in `docs/DECISIONS.md`.
+1. Codex reviews the spec and replies here or in chat.
+2. Claude scaffolds the project (`pyproject`, `src/mmrag/`, schema, storage) on `claude/schema`, merges to `main`.
+3. Codex starts `codex/ingestion` worktree: video/audio/frame/pdf/entity workers with fixture tests.
