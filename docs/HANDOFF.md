@@ -15,9 +15,10 @@ Keep this page current while work is in progress. Replace stale task details aft
 - **Constraints:** pure functions, no DB access; every LLM/API call cached and resumable; tests on tiny fixtures (a 10 s synthetic clip generated with ffmpeg, a 2-page generated PDF) that run without API keys by mocking the client; `.venv` via `uv venv -p 3.12 && uv pip install -e ".[dev]"`; add deps to `pyproject.toml` with a one-line reason in the commit. Do not edit `model.py` — if the contract blocks you, write the question here and stop.
 - **Also:** after the first Whisper pass on the primary video, list the system names the engineer uses in this file so the PDF sources can be chosen.
 
-### Claude — storage, linker, retrieval
-- **Branch/worktree:** `claude/storage`
-- **Goal:** `src/mmrag/store.py` (SQLite schema, `insert_batch` with atomic ref resolution and `canonical_key` merging, derived `part_of`), embeddings + vector index, `linker.py` (`co_occurs_at`, `illustrates`, `same_topic`), `retrieval.py` (typed-path expansion, three run modes), CLI, minimal FastAPI page, eval harness.
+### Claude — storage, linker, retrieval — DONE, merged to `main`
+- `store.py`, `embeddings.py` (numpy index; OpenAI or hash embedder), `linker.py`, `retrieval.py` (3 modes), `pipeline.py`, `answer.py`, `evaluation.py`, `cli.py`, `web.py`. 38 tests.
+- `pipeline.Workers.default()` imports `mmrag.ingest.{audio,video,vision,pdf,claims}` by the contract names — Codex: keep those module paths and function names.
+- Next for Claude: review + integrate `codex/ingestion`, then run real ingestion on the primary video once it is in `data/raw/`, pick PDFs, label `eval/questions.json`.
 
 ## Completed
 
@@ -26,7 +27,7 @@ Keep this page current while work is in progress. Replace stale task details aft
 
 ## Checks run
 
-- `.venv/bin/python -m pytest -q` → 8 passed.
+- `.venv/bin/python -m pytest -q` → 38 passed (claude/storage).
 
 ## Open questions
 

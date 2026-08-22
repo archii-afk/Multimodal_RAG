@@ -1,0 +1,11 @@
+[
+  {
+    "id": "q1-db-load",
+    "text": "What architecture was discussed for reducing database load, who explained it, and where was the corresponding diagram shown?",
+    "required": [
+      {"source": "talk.mp4", "kind": "transcript_segment", "t": 0},
+      {"source": "talk.mp4", "kind": "frame", "t": 0},
+      {"source": "atlassian-doc.pdf", "kind": "pdf_chunk", "page": 1}
+    ]
+  }
+]
