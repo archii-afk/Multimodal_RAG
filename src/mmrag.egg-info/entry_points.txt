@@ -1,0 +1,2 @@
+[console_scripts]
+mmrag = mmrag.cli:main
