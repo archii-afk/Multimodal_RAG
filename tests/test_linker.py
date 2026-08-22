@@ -51,3 +51,25 @@ def test_frame_illustrates_claim_when_entities_intersect_and_cooccurs(store):
     assert n == 1  # f2 depicts the entity but is not on screen while the claim is spoken
     ill = store.edges_to(res.ref_to_node_id["c1"], EdgeKind.ILLUSTRATES)
     assert [e.src for e in ill] == [res.ref_to_node_id["f1"]]
+
+
+def test_same_topic_links_only_across_sources_and_caps(store):
+    from mmrag.embeddings import HashEmbedder, VectorIndex
+    from mmrag.linker import link_same_topic
+    pdf = SourceDraft(ref="src:p", kind=NodeKind.SOURCE, modality=Modality.DOCUMENT, content="doc",
+                      path="p.pdf", mime_type="application/pdf", sha256="p")
+    chunk = lambda ref, text: NodeDraft(ref=ref, kind=NodeKind.PDF_CHUNK, modality=Modality.DOCUMENT,
+                                        content=text, source_ref="src:p", page=1)
+    res = store.insert_batch(IngestBatch(nodes=(
+        _src(), pdf,
+        NodeDraft(ref="s1", kind=NodeKind.TRANSCRIPT_SEGMENT, modality=Modality.AUDIO, source_ref="src:v",
+                  content="read replica reduces database load", t_start=0, t_end=1),
+        NodeDraft(ref="s2", kind=NodeKind.TRANSCRIPT_SEGMENT, modality=Modality.AUDIO, source_ref="src:v",
+                  content="read replica reduces database load too", t_start=1, t_end=2),
+        chunk("p1", "read replica reduces database load"), chunk("p2", "unrelated lunch menu"))))
+    idx = VectorIndex(store, HashEmbedder(dim=128)); idx.embed_missing()
+    n = link_same_topic(store, idx, threshold=0.5, cap=1)
+    s1 = res.ref_to_node_id["s1"]
+    out = store.edges_from(s1, EdgeKind.SAME_TOPIC)
+    assert [e.dst for e in out] == [res.ref_to_node_id["p1"]]  # not s2 (same source), not p2 (below threshold)
+    assert out[0].provenance["threshold"] == 0.5

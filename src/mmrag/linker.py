@@ -48,3 +48,40 @@ def link_claims_to_frames(store: SQLiteStore) -> int:
                                        {"linker": "claim_frame", "overlap_s": overlap, "shared_entities": len(shared)})
                     count += 1
     return count
+
+
+def link_same_topic(store: SQLiteStore, index, threshold: float = 0.80, cap: int = 3) -> int:
+    """Cross-source similarity edges between content nodes, top-``cap`` per node above ``threshold``."""
+    import numpy as np
+
+    if index._mat is None:
+        index._load()
+    ids, mat = index._ids, index._mat
+    if not ids:
+        return 0
+    meta = {r["id"]: (r["source_id"], r["kind"]) for r in store.conn.execute(
+        "SELECT id, source_id, kind FROM nodes WHERE id IN (%s)" % ",".join("?" * len(ids)), ids)}
+    linkable = {NodeKind.TRANSCRIPT_SEGMENT, NodeKind.PDF_CHUNK, NodeKind.FRAME, NodeKind.OCR_BLOCK, NodeKind.IMAGE}
+    sims = mat @ mat.T
+    count = 0
+    with store.conn:
+        for i, nid in enumerate(ids):
+            src_i, kind_i = meta[nid]
+            if NodeKind(kind_i) not in linkable:
+                continue
+            order = np.argsort(-sims[i])
+            added = 0
+            for j in order:
+                if added >= cap or sims[i, j] < threshold:
+                    break
+                oid = ids[j]
+                if oid == nid:
+                    continue
+                src_j, kind_j = meta[oid]
+                if src_j == src_i or NodeKind(kind_j) not in linkable:
+                    continue
+                store._insert_edge(nid, oid, EdgeKind.SAME_TOPIC, float(sims[i, j]),
+                                   {"linker": "same_topic", "model": index.embedder.name, "threshold": threshold})
+                added += 1
+                count += 1
+    return count
