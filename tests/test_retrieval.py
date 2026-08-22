@@ -79,3 +79,28 @@ def test_evidence_items_carry_provenance(world):
     b = Retriever(store, idx).retrieve(QUERY, mode=Mode.GRAPH, k=3)
     f1 = next(e for e in b.evidence if e.node.id == ids["f1"])
     assert f1.source.path == "v.mp4" and f1.node.t_start == 5 and f1.node.provenance["frame_path"] == "f1.jpg"
+
+
+def test_graph_seeds_every_modality_even_when_frames_outscore_text(world):
+    """A frame whose description happens to score highest must not crowd transcript hits out of the seed set."""
+    store, idx, ids = world
+    b = Retriever(store, idx).retrieve("diagram primary postgres read replica boxes", mode=Mode.GRAPH, k=2)
+    kinds = {e.node.kind for e in b.evidence if e.path == ()}
+    assert NodeKind.FRAME in kinds and NodeKind.TRANSCRIPT_SEGMENT in kinds
+
+
+def test_cooccurrence_hop_keeps_only_best_overlapping_neighbours(tmp_path):
+    from mmrag.linker import link_time_overlap
+    store = SQLiteStore(tmp_path / "g.db")
+    video = SourceDraft(ref="src:v", kind=NodeKind.SOURCE, modality=Modality.VIDEO, content="t", path="v.mp4",
+                        mime_type="video/mp4", sha256="v")
+    frame = NodeDraft(ref="f", kind=NodeKind.FRAME, modality=Modality.VIDEO, source_ref="src:v",
+                      content="diagram of replicas", t_start=0, t_end=30)
+    segs = tuple(NodeDraft(ref=f"s{i}", kind=NodeKind.TRANSCRIPT_SEGMENT, modality=Modality.AUDIO, source_ref="src:v",
+                           content=f"filler {i}", t_start=i * 5, t_end=i * 5 + (10 if i == 2 else 5)) for i in range(6))
+    res = store.insert_batch(IngestBatch(nodes=(video, frame) + segs))
+    link_time_overlap(store, res.ref_to_node_id["src:v"])
+    idx = VectorIndex(store, HashEmbedder(64)); idx.embed_missing()
+    b = Retriever(store, idx).retrieve("diagram of replicas", mode=Mode.GRAPH, k=1)
+    hopped = [e for e in b.evidence if e.path]
+    assert len(hopped) <= 2 and hopped[0].node.id == res.ref_to_node_id["s2"]  # longest overlap first

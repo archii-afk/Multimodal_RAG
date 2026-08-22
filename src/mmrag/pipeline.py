@@ -50,11 +50,13 @@ def source_ref_for(path: Path) -> str:
 class Pipeline:
     def __init__(self, store: SQLiteStore, embedder: Embedder, workers: Workers | None = None, *,
                  vision_model: str = "gemini-2.5-flash", llm_model: str = "gpt-4.1-mini",
-                 same_topic_threshold: float = 0.80, log: Callable[[str], None] = print):
+                 same_topic_threshold: float = 0.80, frames_per_minute: float = 3.0,
+                 log: Callable[[str], None] = print):
         self.store, self.embedder = store, embedder
         self.workers = workers or Workers.default()
         self.vision_model, self.llm_model = vision_model, llm_model
         self.same_topic_threshold, self.log = same_topic_threshold, log
+        self.frames_per_minute = frames_per_minute
 
     def ingest(self, paths: list[Path], *, presenter: str) -> dict:
         w = self.workers
@@ -67,7 +69,10 @@ class Pipeline:
             if ext in VIDEO_EXT or ext in AUDIO_EXT:
                 batch = w.ingest_audio(path, source_ref=ref, presenter=presenter)
                 if ext in VIDEO_EXT:
-                    frames = w.sample_video_frames(path, source_ref=ref)
+                    duration = next((n.duration for n in batch.nodes if getattr(n, "duration", None)), None) or 0.0
+                    # Cap scales with length; the sampler guarantees >=1 frame / 30 s, so never go below that.
+                    max_frames = max(80, int(duration / 60 * self.frames_per_minute) + 1, int(duration / 30) + 2)
+                    frames = w.sample_video_frames(path, source_ref=ref, max_frames=max_frames)
                     self.log(f"[frames] {len(frames.nodes)} sampled")
                     frames = w.ingest_frames(frames, model=self.vision_model)
                     batch = batch.merge(frames)

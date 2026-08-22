@@ -57,6 +57,10 @@ PATHS: dict[NodeKind, list[list[tuple[EdgeKind, str]]]] = {
 }
 HOP_DECAY = 0.8
 SAME_TOPIC_CAP = 3
+CO_OCCURS_CAP = 2  # keep only the longest-overlapping neighbours per hop
+# Seed groups: top-k is taken per group so every modality gets a chance to seed expansion.
+SEED_GROUPS = [[NodeKind.TRANSCRIPT_SEGMENT, NodeKind.PDF_CHUNK], [NodeKind.FRAME, NodeKind.OCR_BLOCK, NodeKind.IMAGE],
+               [NodeKind.CLAIM]]
 
 
 class Mode(StrEnum):
@@ -92,7 +96,12 @@ class Retriever:
         if mode is Mode.TEXT_ONLY:
             hits = self.index.search(query, k=k, kinds=TEXT_KINDS)
             return self._bundle(query, mode, {h.node_id: self._direct(h.node_id, h.score) for h in hits})
-        hits = self.index.search(query, k=k, kinds=SEED_KINDS)
+        if mode is Mode.FLAT_MULTIMODAL:
+            hits = self.index.search(query, k=k, kinds=SEED_KINDS)
+        else:
+            hits = sorted({h.node_id: h for g in SEED_GROUPS for h in self.index.search(query, k=k, kinds=g)}.values(),
+                          key=lambda h: -h.score)
+        hits = [h for h in hits if h.score > 0]
         found: dict[str, Evidence] = {}
         for h in hits:
             node = self.store.get_node(h.node_id)
@@ -117,6 +126,8 @@ class Retriever:
                     nbrs = self.store.neighbors(node.id, [ekind], direction=direction)
                     if ekind is EdgeKind.SAME_TOPIC:
                         nbrs = sorted(nbrs, key=lambda ne: -ne[1].weight)[:SAME_TOPIC_CAP]
+                    elif ekind is EdgeKind.CO_OCCURS_AT:
+                        nbrs = sorted(nbrs, key=lambda ne: -ne[1].weight)[:CO_OCCURS_CAP]
                     for n, e in nbrs:
                         if n.id == seed.id:
                             continue
@@ -126,6 +137,8 @@ class Retriever:
                 if node.kind not in EVIDENCE_KINDS:
                     continue
                 score = seed_sim * (HOP_DECAY ** len(path)) * node.confidence
+                if path and path[-1].kind is EdgeKind.CO_OCCURS_AT:
+                    score *= min(1.0, 0.5 + path[-1].weight / 20.0)  # longer overlap ranks higher
                 prev = found.get(node.id)
                 if prev is None or score > prev.score:
                     found[node.id] = Evidence(node, self.store.source_of(node), score, seed_sim, path, seed.id)

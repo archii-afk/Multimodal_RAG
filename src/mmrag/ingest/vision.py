@@ -6,6 +6,7 @@ import hashlib
 import json
 import mimetypes
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
@@ -23,17 +24,21 @@ from mmrag.model import (
     canonical_entity_key,
 )
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 VISION_CACHE_ROOT = Path("data/processed/cache/vision")
 MAX_CONCURRENCY = 3
 MAX_ATTEMPTS = 4
 
-VISION_PROMPT = """Analyze this frame as evidence from a technical presentation.
+VISION_PROMPT = """This frame is from a screen-recorded technical talk. It may include a webcam overlay of the
+presenter; IGNORE the presenter and describe ONLY the shared screen content (diagrams, slides, code, terminals).
 Return JSON with exactly these fields:
-- description: concise factual visual description
-- ocr_text: all legible text, preserving reading order
-- entities: distinct named systems, services, products, organizations, and people
-- is_diagram: boolean
+- description: what the screen shows, as a knowledge statement: the components drawn, how arrows connect them,
+  and what the diagram/slide is explaining (e.g. "Architecture diagram: client -> FastAPI web server -> SQS queue ->
+  worker -> DynamoDB; client polls the web server for task status"). Never mention the person or the camera.
+  If the screen is blank or unreadable, say so in a few words.
+- ocr_text: all legible on-screen text, preserving reading order
+- entities: distinct named systems, services, products, organizations, and people visible on screen
+- is_diagram: true only if a diagram, architecture drawing, or flow is shown
 - model_confidence: number from 0 to 1
 Do not infer details that are not visible.
 """
@@ -165,13 +170,29 @@ def _analyze_frame_cached(frame: NodeDraft, model: str) -> dict[str, Any]:
     raise last_error
 
 
+_GEMINI_CLIENT = None
+_GEMINI_LOCK = threading.Lock()
+
+
+def _gemini_client():
+    """One shared client. A temporary ``genai.Client()`` is garbage-collected as soon as
+    ``.models`` is taken, and its finalizer closes the httpx client before the request is sent
+    ("Cannot send a request, as the client has been closed"). httpx clients are thread-safe."""
+    global _GEMINI_CLIENT
+    with _GEMINI_LOCK:
+        if _GEMINI_CLIENT is None:
+            from google import genai
+
+            _GEMINI_CLIENT = genai.Client()
+        return _GEMINI_CLIENT
+
+
 def _gemini_request(frame_path: Path, *, model: str) -> dict[str, Any]:
     """Perform one Gemini API call; isolated for keyless tests."""
-    from google import genai
     from google.genai import types
 
     mime_type = mimetypes.guess_type(frame_path.name)[0] or "image/jpeg"
-    response = genai.Client().models.generate_content(
+    response = _gemini_client().models.generate_content(
         model=model,
         contents=[
             VISION_PROMPT,
