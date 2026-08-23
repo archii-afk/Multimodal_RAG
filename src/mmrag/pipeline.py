@@ -50,7 +50,7 @@ def source_ref_for(path: Path) -> str:
 class Pipeline:
     def __init__(self, store: SQLiteStore, embedder: Embedder, workers: Workers | None = None, *,
                  vision_model: str = "gemini-2.5-flash", llm_model: str = "gpt-4.1-mini",
-                 same_topic_threshold: float = 0.80, frames_per_minute: float = 3.0,
+                 same_topic_threshold: float = 0.55, frames_per_minute: float = 3.0,
                  log: Callable[[str], None] = print):
         self.store, self.embedder = store, embedder
         self.workers = workers or Workers.default()

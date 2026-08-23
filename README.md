@@ -75,7 +75,7 @@ path, sha256, sample instant). Sources carry `path`, `mime_type`, `sha256`, `dur
 
 **Edges** — `part_of`, `next`, `spoken_by`, `mentions`, `depicts`, `expresses`, `supports`,
 `involves`, `co_occurs_at` (weight = seconds of overlap), `illustrates` (weight = shared
-entities), `same_topic` (weight = cosine, cross-source only, ≤3 per node).
+entities), `same_topic` (weight = cosine ≥ 0.55, cross-source only, ≤3 per node).
 
 **Contract** — workers build `NodeDraft`/`EdgeDraft` with batch-local refs; an edge may target
 `key:<canonical_key>` for a node that lives in another batch. The store resolves refs
@@ -88,7 +88,7 @@ workers converge on one `DynamoDB` entity without coordinating.
 - `illustrates`: a frame illustrates a claim **only if** it depicts an entity the claim involves
   **and** it co-occurs with a segment expressing the claim. A DynamoDB diagram at 20:30 does not
   attach to a sentence at 09:04.
-- `same_topic`: cosine ≥ 0.80 between nodes from different files — how a sentence finds its supporting page.
+- `same_topic`: cosine ≥ 0.55 between nodes from different files — how a sentence finds its supporting page. (0.55 was chosen from the measured distribution: p90 of best cross-source match is 0.49, and every pair above 0.55 was on-topic.)
 
 ### 2.4 Retrieval (`src/mmrag/retrieval.py`)
 
@@ -126,12 +126,15 @@ Full log: [`docs/DECISIONS.md`](docs/DECISIONS.md). Design spec:
   provisioning architecture on an Excalidraw whiteboard (Envoy sidecars, Open Service Broker,
   Packer AMIs + CloudFormation, a FastAPI → SQS → worker → DynamoDB async-task pattern).
   Single speaker; not redistributed (place it in `data/raw/`).
-- **Documents:** public Atlassian / Envoy / Open Service Broker pages exported to PDF, chosen
-  for entity overlap with the talk. *(Being added — see §8.)*
+- **Documents (5 PDFs, `data/raw/docs/`, printed from public pages):** Envoy architecture
+  terminology and xDS dynamic configuration; the Open Service Broker API spec (67 pp); Atlassian
+  "Cloud architecture and operational practices"; the Asynchronous Request-Reply pattern
+  (queue → worker → status endpoint → client polling). Chosen after the first transcript pass for
+  exact entity overlap with what the engineer draws.
 
-Result of ingesting the video: **1,204 nodes** (616 segments, 93 frames of which 49 are
-diagrams, 87 OCR blocks, 260 entities, 172 claims), **3,437 edges** (707 `co_occurs_at`, 48
-`illustrates`), 0 warnings.
+Result of ingesting all six sources: **1,714 nodes** (616 segments, 93 frames of which 49 are
+diagrams, 87 OCR blocks, 102 PDF chunks, 388 claims, 409 entities), **7,048 edges** including
+707 `co_occurs_at`, 48 `illustrates`, 153 cross-source `same_topic`; 0 warnings.
 
 Demo question and what each mode returns are in [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md);
 the web page (`mmrag serve`) shows evidence cards with modality, location
@@ -142,11 +145,17 @@ the web page (`mmrag serve`) shows evidence cards with modality, location
 `mmrag eval eval/questions.json` runs a hand-labelled question set through all three modes and
 reports recall of the required evidence (matched by source, kind, and timestamp ± 5 s or page).
 
-| mode | recall@8 |
-|---|---|
-| text_only | *pending — run after PDFs are ingested* |
-| flat_multimodal | *pending* |
-| graph | *pending* |
+| mode | recall@8 | found / required |
+|---|---|---|
+| text_only (baseline) | **0.54** | 7 / 13 |
+| flat_multimodal (ablation) | **0.62** | 8 / 13 |
+| graph | **0.92** | 12 / 13 |
+
+Five questions over the 40-min talk + five PDFs; 13 required evidence items (6 transcript
+segments, 4 frames, 3 PDF pages). Text-only finds sentences but never a frame. Adding frames to
+flat search gains one item. The graph's typed paths recover every frame and all but one PDF page
+(it returns the right document on a neighbouring page). The 0.62 → 0.92 gap is attributable to
+the links, not to the extra modalities. Reproduce: `mmrag eval eval/questions.json`.
 
 Format of a question: `{"id", "text", "required": [{"source": "talk.mp4", "kind": "frame", "t": 512}, {"source": "doc.pdf", "kind": "pdf_chunk", "page": 3}]}` — see `eval/questions.example.json`.
 
@@ -199,9 +208,8 @@ Gemini 2.5 Flash · PyMuPDF · SQLite · numpy · FastAPI · pytest.
 
 ## 8. Status
 
-Done: ingestion, representation, linking, retrieval, web/CLI, evaluation harness, real run on
-the primary video. Remaining for submission: ingest the document PDFs, label and run the 5-question
-evaluation (fill §5), record the demo.
+Done: ingestion, representation, linking, retrieval, web/CLI, evaluation on the real corpus
+(video + 5 PDFs). Remaining: record the demo (`docs/DEMO_SCRIPT.md`).
 
 ## Collaboration
 

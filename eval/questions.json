@@ -1,0 +1,45 @@
+[
+  {
+    "id": "q1-async-task-flow",
+    "text": "How does the async task flow work between the web server, the worker and DynamoDB, who explained it, and where was the diagram shown?",
+    "required": [
+      {"source": "Test_video.mp4", "kind": "transcript_segment", "t": 506},
+      {"source": "Test_video.mp4", "kind": "frame", "t": 525},
+      {"source": "async-request-reply-pattern.pdf", "kind": "pdf_chunk", "page": 3}
+    ]
+  },
+  {
+    "id": "q2-envoy-sidecar",
+    "text": "Why did they use a sidecar model with Envoy, and which diagram shows the request flow through the proxy?",
+    "required": [
+      {"source": "Test_video.mp4", "kind": "transcript_segment", "t": 1786},
+      {"source": "Test_video.mp4", "kind": "frame", "t": 1815},
+      {"source": "envoy-dynamic-configuration-xds.pdf", "kind": "pdf_chunk", "page": 1}
+    ]
+  },
+  {
+    "id": "q3-open-service-broker",
+    "text": "What is the Open Service Broker the engineer built, and where was the Open Service Broker API documentation shown on screen?",
+    "required": [
+      {"source": "Test_video.mp4", "kind": "transcript_segment", "t": 297},
+      {"source": "Test_video.mp4", "kind": "frame", "t": 315},
+      {"source": "open-service-broker-api-spec.pdf", "kind": "pdf_chunk", "page": 2}
+    ]
+  },
+  {
+    "id": "q4-packer-ami-cloudformation",
+    "text": "How are the AMIs built with Packer and used by CloudFormation to provision EC2 instances, and where is that drawn?",
+    "required": [
+      {"source": "Test_video.mp4", "kind": "transcript_segment", "t": 1177},
+      {"source": "Test_video.mp4", "kind": "frame", "t": 1150}
+    ]
+  },
+  {
+    "id": "q5-multi-tenant-isolation",
+    "text": "What does the talk say about building on a generic multi-tenanted platform, and what does Atlassian's cloud architecture document say about tenant isolation?",
+    "required": [
+      {"source": "Test_video.mp4", "kind": "transcript_segment", "t": 1538},
+      {"source": "atlassian-cloud-architecture.pdf", "kind": "pdf_chunk", "page": 10}
+    ]
+  }
+]

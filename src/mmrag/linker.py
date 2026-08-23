@@ -50,7 +50,7 @@ def link_claims_to_frames(store: SQLiteStore) -> int:
     return count
 
 
-def link_same_topic(store: SQLiteStore, index, threshold: float = 0.80, cap: int = 3) -> int:
+def link_same_topic(store: SQLiteStore, index, threshold: float = 0.55, cap: int = 3) -> int:
     """Cross-source similarity edges between content nodes, top-``cap`` per node above ``threshold``."""
     import numpy as np
 

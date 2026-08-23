@@ -40,3 +40,10 @@ Record decisions that affect architecture, product scope, dependencies, data con
 - **Context:** Codex reviewed the Option A spec and flagged: no node for propositions, presenter only as text, frames as instants, confounded baseline, scene detection unreliable on Excalidraw screens, uncached vision calls, and the schedule being serialized on storage.
 - **Decision:** Add `claim` nodes with `expresses`/`illustrates`/`supports`/`involves` edges; persons as entity nodes with `spoken_by`; frame validity windows with overlap-weighted `co_occurs_at`; a flat-multimodal ablation alongside the text-only baseline; hybrid 5 s + scene sampling with perceptual-hash dedupe; on-disk vision cache keyed by sha256+model+prompt_version; typed-path-only graph expansion. The worker/store boundary is frozen in `src/mmrag/model.py` (`NodeDraft`, `EdgeDraft`, `IngestBatch`, batch-local refs, `key:<canonical_key>` references, `canonical_key` merging). Changing it requires a new DECISIONS entry.
 - **Consequences:** Codex builds workers against the contract immediately while Claude builds storage. Deferred: second video, PDF embedded images/bboxes; eval set is 5 questions; PDFs chosen after the first transcript pass. Tooling: `uv` + Python 3.12 venv.
+
+### 2026-08-23 — same_topic threshold 0.55; document corpus fixed
+
+- **Status:** Accepted
+- **Context:** At the spec's 0.80 cosine threshold, `text-embedding-3-small` produced zero cross-source links on the real corpus. Measured distribution of best video→PDF match: p50 0.27, p90 0.49, p99 0.62, max 0.72; manual inspection showed every pair ≥0.55 was on-topic.
+- **Decision:** Default `same_topic` threshold 0.55, cap 3 per node (153 edges on the corpus). Documents: Envoy terminology + xDS pages, Open Service Broker API spec, Atlassian cloud architecture page, Asynchronous Request-Reply pattern — printed to PDF with headless Chrome into `data/raw/docs/` (gitignored; URLs in README §4).
+- **Consequences:** Eval on 5 questions / 13 items: text_only 0.54, flat_multimodal 0.62, graph 0.92. Threshold is embedding-model-specific; re-measure if the embedder changes.

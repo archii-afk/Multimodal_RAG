@@ -44,7 +44,6 @@ Show the video for 5 seconds at 08:15 — the FastAPI/SQS/worker drawing in prog
 python -m mmrag.cli ingest data/raw/Test_video.mp4 data/raw/docs/*.pdf \
   --presenter "Ex-Atlassian Senior Engineer"
 ```
-(Until the PDFs exist, drop `data/raw/docs/*.pdf` — zsh aborts on an unmatched glob.)
 
 While it runs, narrate the log lines as they appear:
 
@@ -116,8 +115,8 @@ Click one frame thumbnail, then scrub the real video to that timestamp. Same dia
 python -m mmrag.cli eval eval/questions.json
 ```
 
-> "Five labelled questions, each needing evidence from more than one modality. Recall of the
-> required evidence: text-only ≈ X, flat multimodal ≈ Y, graph ≈ Z." (fill in from the run)
+> "Five labelled questions, thirteen required pieces of evidence across transcript, frames and
+> PDF pages. Recall: text-only 0.54, flat multimodal 0.62, graph 0.92." 
 
 > "The gap between the last two is the graph's contribution — not just access to more data."
 
@@ -134,8 +133,8 @@ python -m mmrag.cli eval eval/questions.json
 
 ## Checklist before hitting record
 
-- [ ] PDFs ingested and at least one `pdf_chunk` appears for the demo question in graph mode
-- [ ] `eval/questions.json` labelled; numbers for §5 written into this script
+- [x] PDFs ingested (5 in `data/raw/docs/`); graph mode returns a `pdf_chunk` for the demo question
+- [x] `eval/questions.json` labelled; numbers in §5
 - [ ] Presenter name set (re-run ingest if changed)
 - [ ] Browser zoom 125%, dark theme matching the Excalidraw board
 - [ ] `data/processed/evidence.db` deleted so §2 runs live
