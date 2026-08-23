@@ -1,4 +1,4 @@
-# Demo script (~4 minutes)
+# Demo script (~4.5 minutes)
 
 Target: show a realistic multimodal dataset being ingested and a query whose answer
 requires more than one modality, with traceability to the source (brief §6–§8).
@@ -38,7 +38,7 @@ Show the video for 5 seconds at 08:15 — the FastAPI/SQS/worker drawing in prog
 
 ---
 
-## 2. Ingestion — 60 s
+## 2. Ingestion — 90 s
 
 ```sh
 python -m mmrag.cli ingest data/raw/Test_video.mp4 data/raw/docs/*.pdf \
@@ -52,13 +52,26 @@ While it runs, narrate the log lines as they appear:
 > gives timestamped sentences. Gemini reads each frame: what the screen shows, the text on it,
 > the systems drawn. PyMuPDF chunks the PDFs without crossing pages. A claim pass turns speech
 > and documents into propositions — *'the worker writes the result to DynamoDB'* — tied to
-> entities. Every API call is cached by content hash, which is why this finishes in a minute."
+> entities. Every API call is cached by content hash, which is why six sources finish in about
+> two minutes instead of ten."
 
-When `[done]` prints, start the server in the same terminal (`python -m mmrag.cli serve &`) and read the numbers:
+The five PDFs are public pages printed to PDF — the Envoy architecture and xDS docs, the Open
+Service Broker API spec, Atlassian's cloud-architecture page, and the Asynchronous Request-Reply
+pattern — picked because the engineer literally names those systems on screen.
 
-> "1,200 nodes, 3,400 edges. 707 of those edges say *this sentence was spoken while this frame
-> was on screen*. 48 say *this diagram illustrates this claim* — which only happens when the
-> frame shows the same entity **and** was visible while the claim was being said."
+When `[done]` prints (`sources: 6`), start the server in the same terminal:
+
+```sh
+python -m mmrag.cli serve &
+```
+
+and read the numbers:
+
+> "Six sources, about 1,700 nodes, 7,000 edges. 707 of those edges say *this sentence was
+> spoken while this frame was on screen*. 48 say *this diagram illustrates this claim* — which
+> only happens when the frame shows the same entity **and** was visible while the claim was
+> being said. 153 say *this moment in the video and this page in a document are about the same
+> thing*."
 
 ---
 
@@ -102,8 +115,9 @@ Point at the cards as you read the answer:
 > "The answer: client hits FastAPI, FastAPI drops the task into SQS [E2 at 08:30], the worker
 > provisions Route53 and CloudFront [E5 at 08:49], writes to DynamoDB [E9 at 09:04], the client
 > polls [E14 at 08:56]. Explained by the presenter. Diagram at 08:00–09:30 — here's the frame.
-> And the supporting document page — here. Every card shows the path that reached it, so the
-> evidence is traceable, not just plausible."
+> And the Asynchronous Request-Reply pattern document — the same queue, worker, status endpoint
+> and polling, as a page citation. Every card shows the path that reached it — `<-co_occurs_at`,
+> `<-illustrates`, `same_topic` — so the evidence is traceable, not just plausible."
 
 Click one frame thumbnail, then scrub the real video to that timestamp. Same diagram.
 
@@ -115,8 +129,11 @@ Click one frame thumbnail, then scrub the real video to that timestamp. Same dia
 python -m mmrag.cli eval eval/questions.json
 ```
 
-> "Five labelled questions, thirteen required pieces of evidence across transcript, frames and
-> PDF pages. Recall: text-only 0.54, flat multimodal 0.62, graph 0.92." 
+>"Five labelled questions, thirteen required pieces of evidence across transcript, frames and
+> PDF pages. Recall: text-only 0.54 — it never finds a frame. Flat multimodal 0.62 — frames are
+> in the index now, but only one more item is found. Graph 0.92 — every frame, and all but one
+> page."
+
 
 > "The gap between the last two is the graph's contribution — not just access to more data."
 
@@ -137,4 +154,5 @@ python -m mmrag.cli eval eval/questions.json
 - [x] `eval/questions.json` labelled; numbers in §5
 - [ ] Presenter name set (re-run ingest if changed)
 - [ ] Browser zoom 125%, dark theme matching the Excalidraw board
-- [ ] `data/processed/evidence.db` deleted so §2 runs live
+- [ ] `data/processed/evidence.db` deleted so §2 runs live (≈2 min from cache; rehearse once so the log lines are familiar)
+- [ ] Dry run of §4 done: confirm graph mode shows a frame card with thumbnail and a `pdf_chunk` card for the demo question
