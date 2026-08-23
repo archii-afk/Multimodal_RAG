@@ -13,10 +13,13 @@ Record with screen + mic. Terminal on the left, browser on the right. Font size 
 ```sh
 cd Multimodal_RAG
 source .venv/bin/activate
-rm -f data/processed/evidence.db          # so ingestion runs live, from cache (~60 s, no API calls)
 export PYTHONPATH=src
-python -m mmrag.cli serve &                # leave running; reload the page after ingest
+kill $(pgrep -f "mmrag.cli serve") 2>/dev/null   # stop any old server
+rm -f data/processed/evidence.db                  # so §2 ingestion runs live, from cache (~60 s, no API calls)
 ```
+
+Do NOT start the server yet: it loads the vector index once at first search, so it must start
+**after** ingestion (§2). One terminal is enough; the server goes in the background with `&`.
 
 Have the Excalidraw-style architecture diagram (docs/superpowers spec §3) open in a tab.
 
@@ -41,6 +44,7 @@ Show the video for 5 seconds at 08:15 — the FastAPI/SQS/worker drawing in prog
 python -m mmrag.cli ingest data/raw/Test_video.mp4 data/raw/docs/*.pdf \
   --presenter "Ex-Atlassian Senior Engineer"
 ```
+(Until the PDFs exist, drop `data/raw/docs/*.pdf` — zsh aborts on an unmatched glob.)
 
 While it runs, narrate the log lines as they appear:
 
@@ -51,7 +55,7 @@ While it runs, narrate the log lines as they appear:
 > and documents into propositions — *'the worker writes the result to DynamoDB'* — tied to
 > entities. Every API call is cached by content hash, which is why this finishes in a minute."
 
-When `[done]` prints, read the numbers:
+When `[done]` prints, start the server in the same terminal (`python -m mmrag.cli serve &`) and read the numbers:
 
 > "1,200 nodes, 3,400 edges. 707 of those edges say *this sentence was spoken while this frame
 > was on screen*. 48 say *this diagram illustrates this claim* — which only happens when the
